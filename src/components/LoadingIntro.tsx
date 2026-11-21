@@ -4,13 +4,14 @@ import { AnimatePresence, motion } from 'framer-motion'
 /*
  * EL MOI — the threshold.
  *
- * The loading film plays VERTICALLY on every device — rotated 90° so El Moi
- * lies up the screen, contained like a phone-format film (soft side bars on
- * wide monitors). When it ends, its own final frame is captured and split
- * along the vertical seam — the left door slides left, the right door
- * slides right — and the website shows through.
+ * The loading film plays in the device's natural orientation:
+ *   desktop (landscape screen) — horizontal film, full screen, and the
+ *           final frame splits with a horizontal seam (top lifts, bottom sinks)
+ *   mobile (portrait screen)  — vertical film (rotated 90°), full screen,
+ *           and the final frame splits with a vertical seam (left/right)
  *
- * Body scroll stays locked until the doors finish parting.
+ * The doors are the film's own final frame, captured live from the video
+ * element — no separate stills. Body scroll stays locked until they part.
  */
 
 type Phase = 'film' | 'split' | 'revealed'
@@ -29,7 +30,7 @@ export function LoadingIntro() {
 
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
 
-  // keep the vertical geometry current
+  // keep the orientation current
   useEffect(() => {
     const onResize = () => setDims({ vw: window.innerWidth, vh: window.innerHeight })
     window.addEventListener('resize', onResize)
@@ -45,19 +46,11 @@ export function LoadingIntro() {
   }, [phase])
 
   const { vw, vh } = dims
-
-  // the film, rotated 90°:
-  //   portrait screens — COVER: it fills the phone edge to edge
-  //   landscape screens — CONTAIN: the full vertical frame with soft bars
-  const isPortraitScreen = vh > vw
-  const coverH = Math.max(vw, Math.round((vh * 9) / 16))
-  const coverW = Math.round((coverH * 16) / 9)
-  const filmW = isPortraitScreen ? coverW : Math.min(vh, Math.round((vw * 16) / 9))
-  const filmH = isPortraitScreen ? coverH : Math.round((filmW * 9) / 16)
+  const horizontal = vh <= vw // landscape screen → horizontal film
 
   const filmEnded = () => {
-    // capture the screen composite (rotated film on its backdrop) so the
-    // doors continue it pixel-for-pixel
+    // capture the video's true final frame with the same cover geometry it
+    // was displayed with, so the doors continue it pixel-for-pixel
     const v = videoRef.current
     if (v) {
       try {
@@ -66,13 +59,17 @@ export function LoadingIntro() {
         c.height = vh
         const ctx = c.getContext('2d')
         if (ctx) {
-          ctx.fillStyle = '#1a1414'
-          ctx.fillRect(0, 0, vw, vh)
-          ctx.save()
-          ctx.translate(vw / 2, vh / 2)
-          ctx.rotate(Math.PI / 2)
-          ctx.drawImage(v, -filmW / 2, -filmH / 2, filmW, filmH)
-          ctx.restore()
+          const iw = v.videoWidth
+          const ih = v.videoHeight
+          if (horizontal) {
+            const s = Math.max(vw / iw, vh / ih)
+            ctx.drawImage(v, (vw - iw * s) / 2, (vh - ih * s) / 2, iw * s, ih * s)
+          } else {
+            const s = Math.max(vw / ih, vh / iw)
+            ctx.translate(vw / 2, vh / 2)
+            ctx.rotate(Math.PI / 2)
+            ctx.drawImage(v, (-iw * s) / 2, (-ih * s) / 2, iw * s, ih * s)
+          }
           setFrameUrl(c.toDataURL('image/jpeg', 0.9))
         }
       } catch {
@@ -99,7 +96,9 @@ export function LoadingIntro() {
             doorsOpen ? 'pointer-events-none bg-transparent' : 'bg-ink-950'
           }`}
         >
-          {/* ---------- THE FILM, VERTICAL ---------- */}
+          {/* ---------- THE FILM (holds its final frame after ending;
+                hidden the instant the doors start parting so the gap
+                reveals the real page) ---------- */}
           <motion.div
             key="film"
             initial={{ opacity: 0 }}
@@ -107,8 +106,8 @@ export function LoadingIntro() {
             transition={{ duration: 0.3 }}
             className="absolute inset-0"
           >
-            {/* the rotated film lives on a plain element — framer never
-                touches its transform */}
+            {/* the film lives on a plain element — framer never touches its
+                transform; rotated only on portrait screens */}
             <video
               ref={videoRef}
               src="/video/loading-page.mp4"
@@ -118,23 +117,58 @@ export function LoadingIntro() {
               onEnded={filmEnded}
               onError={filmEnded}
               className="absolute"
-              style={{
-                visibility: doorsOpen ? 'hidden' : 'visible',
-                top: '50%',
-                left: '50%',
-                width: filmW,
-                height: filmH,
-                maxWidth: 'none',
-                transform: 'translate(-50%, -50%) rotate(90deg)',
-                objectFit: 'cover',
-              }}
+              style={
+                horizontal
+                  ? {
+                      visibility: doorsOpen ? 'hidden' : 'visible',
+                      inset: 0,
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                    }
+                  : {
+                      visibility: doorsOpen ? 'hidden' : 'visible',
+                      top: '50%',
+                      left: '50%',
+                      width: Math.max(vw, Math.round((vh * 9) / 16) * (16 / 9)),
+                      height: Math.max(vw, Math.round((vh * 9) / 16)),
+                      maxWidth: 'none',
+                      transform: 'translate(-50%, -50%) rotate(90deg)',
+                      objectFit: 'cover',
+                    }
+              }
             />
           </motion.div>
 
-          {/* ---------- THE DOORS: the film's own final frame, split
-                down the vertical seam; each half carries half of the
-                full-screen frame ---------- */}
-          {frameUrl && (
+          {/* ---------- THE DOORS: the film's own final frame, split ---------- */}
+          {frameUrl && horizontal ? (
+            <>
+              <motion.div
+                className="absolute inset-x-0 top-0 h-1/2"
+                style={{
+                  backgroundImage: `url(${frameUrl})`,
+                  backgroundSize: '100% 200vh',
+                  backgroundPosition: 'center top',
+                  backgroundRepeat: 'no-repeat',
+                }}
+                initial={{ y: 0 }}
+                animate={doorsOpen ? { y: '-100%' } : { y: 0 }}
+                transition={{ duration: 1.4, ease: [0.7, 0, 0.2, 1] }}
+              />
+              <motion.div
+                className="absolute inset-x-0 bottom-0 h-1/2"
+                style={{
+                  backgroundImage: `url(${frameUrl})`,
+                  backgroundSize: '100% 200vh',
+                  backgroundPosition: 'center bottom',
+                  backgroundRepeat: 'no-repeat',
+                }}
+                initial={{ y: 0 }}
+                animate={doorsOpen ? { y: '100%' } : { y: 0 }}
+                transition={{ duration: 1.4, ease: [0.7, 0, 0.2, 1] }}
+              />
+            </>
+          ) : frameUrl ? (
             <>
               <motion.div
                 className="absolute inset-y-0 left-0 w-1/2"
@@ -161,7 +195,7 @@ export function LoadingIntro() {
                 transition={{ duration: 1.4, ease: [0.7, 0, 0.2, 1] }}
               />
             </>
-          )}
+          ) : null}
 
           {/* film duration — one thin gold line */}
           {phase !== 'revealed' && (
