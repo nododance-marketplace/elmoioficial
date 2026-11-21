@@ -15,15 +15,17 @@ import { FRAME_COUNT, getFrame, preloadFrames } from '../lib/framePreloader'
  * Desterrado shop frame.
  */
 
-const SECTION_VH = 500 // scroll length of the walk
+const SECTION_VH = 1000 // scroll length of the walk (half the previous speed)
 
 // scroll progress -> frame index, with flat holds (frame index is 0-based)
 const KEYFRAMES: Array<[number, number]> = [
-  [0.0, 0],    // iso wide
-  [0.1, 0],    // HOLD — iso (nodo computer)
-  [0.5, 137],  // glide to the portrait
-  [0.62, 137], // HOLD — portrait (social icons)
-  [0.88, 275], // glide to the clothing rack
+  [0.0, 0],    // iso wide (arrival)
+  [0.06, 0],   // brief arrival hold
+  [0.28, 59],  // glide to the Nodo desk
+  [0.4, 59],   // HOLD — Nodo dance pit stop (teal screen)
+  [0.6, 137],  // glide to the portrait
+  [0.72, 137], // HOLD — portrait (social icons)
+  [0.92, 275], // glide to the clothing rack
   [1.0, 275],  // HOLD — rack (Desterrado shop frame)
 ]
 
@@ -40,9 +42,9 @@ function frameAt(p: number): number {
   return KEYFRAMES[KEYFRAMES.length - 1][1]
 }
 
-type Hold = 'iso' | 'portrait' | 'rack' | null
+type Hold = 'nodo' | 'portrait' | 'rack' | null
 function holdAt(frame: number): Hold {
-  if (frame <= 0) return 'iso'
+  if (frame === 59) return 'nodo'
   if (frame === 137) return 'portrait'
   if (frame >= FRAME_COUNT - 1) return 'rack'
   return null
@@ -55,8 +57,8 @@ function holdAt(frame: number): Hold {
  */
 type Hotspot = { fx: number; fy: number; href: string; label: string; icon: 'node' | 'ig' | 'yt' | 'tt' | 'sp' | 'am' | 'ym' | 'dz' }
 
-const HOTSPOTS: Record<'iso' | 'portrait' | 'rack', Hotspot[]> = {
-  iso: [{ fx: 0.57, fy: 0.42, href: LINKS.nododance, label: 'nododance.com', icon: 'node' }],
+const HOTSPOTS: Record<'nodo' | 'portrait' | 'rack', Hotspot[]> = {
+  nodo: [{ fx: 0.585, fy: 0.235, href: LINKS.nododance, label: 'nododance.com', icon: 'node' }],
   portrait: [
     { fx: 0.335, fy: 0.075, href: LINKS.instagram, label: 'Instagram', icon: 'ig' },
     { fx: 0.5, fy: 0.09, href: LINKS.youtube, label: 'YouTube', icon: 'yt' },
