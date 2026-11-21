@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+.vercel
+.env*
+
+# EL MOI - heavy production assets (Blender masters, source videos)
+New Website Assets/
