@@ -100,29 +100,35 @@ export function LoadingIntro() {
           }`}
         >
           {/* ---------- THE FILM, VERTICAL ---------- */}
-          <motion.video
+          <motion.div
             key="film"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
-            ref={videoRef}
-            src="/video/loading-page.mp4"
-            autoPlay
-            muted
-            playsInline
-            onEnded={filmEnded}
-            onError={filmEnded}
-            className="absolute"
-            style={{
-              visibility: doorsOpen ? 'hidden' : 'visible',
-              top: '50%',
-              left: '50%',
-              width: filmW,
-              height: filmH,
-              transform: 'translate(-50%, -50%) rotate(90deg)',
-              objectFit: 'cover',
-            }}
-          />
+            className="absolute inset-0"
+          >
+            {/* the rotated film lives on a plain element — framer never
+                touches its transform */}
+            <video
+              ref={videoRef}
+              src="/video/loading-page.mp4"
+              autoPlay
+              muted
+              playsInline
+              onEnded={filmEnded}
+              onError={filmEnded}
+              className="absolute"
+              style={{
+                visibility: doorsOpen ? 'hidden' : 'visible',
+                top: '50%',
+                left: '50%',
+                width: filmW,
+                height: filmH,
+                transform: 'translate(-50%, -50%) rotate(90deg)',
+                objectFit: 'cover',
+              }}
+            />
+          </motion.div>
 
           {/* ---------- THE DOORS: the film's own final frame, split
                 down the vertical seam; each half carries half of the
