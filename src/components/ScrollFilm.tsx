@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { useScroll, useMotionValueEvent } from 'framer-motion'
 import { LINKS } from '../data/links'
-import { FRAME_COUNT, getFrame, preloadFrames } from '../lib/framePreloader'
+import { FRAME_COUNT, getFrame, preloadFrames, whenReady } from '../lib/framePreloader'
 
 /*
  * EL MOI — the walk through the salon.
@@ -21,12 +20,12 @@ const SECTION_VH = 2000 // scroll length of the walk (half of the previous speed
 const KEYFRAMES: Array<[number, number]> = [
   [0.0, 0],    // iso wide (arrival)
   [0.05, 0],   // brief arrival hold
-  [0.24, 137], // glide to the portrait
-  [0.36, 137], // HOLD — portrait (social icons)
-  [0.56, 195], // glide to the Nodo desk
-  [0.68, 195], // HOLD — Nodo dance pit stop (the screen)
-  [0.88, 275], // glide to the clothing rack
-  [1.0, 275],  // HOLD — rack (Desterrado shop frame)
+  [0.24, 116], // glide to the portrait
+  [0.36, 116], // HOLD — portrait (social icons)
+  [0.56, 165], // glide to the Nodo desk
+  [0.68, 165], // HOLD — Nodo dance pit stop (the screen)
+  [0.88, 233], // glide to the clothing rack
+  [1.0, 233],  // HOLD — rack (Desterrado shop frame)
 ]
 
 function frameAt(p: number): number {
@@ -44,8 +43,8 @@ function frameAt(p: number): number {
 
 type Hold = 'nodo' | 'portrait' | 'rack' | null
 function holdAt(frame: number): Hold {
-  if (frame === 195) return 'nodo'
-  if (frame === 137) return 'portrait'
+  if (frame === 165) return 'nodo'
+  if (frame === 116) return 'portrait'
   if (frame >= FRAME_COUNT - 1) return 'rack'
   return null
 }
@@ -126,11 +125,6 @@ export function ScrollFilm() {
   const [frame, setFrame] = useState(0)
   const [inView, setInView] = useState(false)
 
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ['start start', 'end end'],
-  })
-
   // kick the preload (shared with the intro)
   useEffect(() => {
     preloadFrames()
@@ -176,30 +170,48 @@ export function ScrollFilm() {
     ctx.drawImage(img, dx, dy, w, h)
   }
 
-  useMotionValueEvent(scrollYProgress, 'change', (p) => {
-    const clamped = Math.min(1, Math.max(0, p))
-    const i = frameAt(clamped)
-    if (i !== frameRef.current) {
-      frameRef.current = i
-      setFrame(i)
-      // draw off the paint cycle, straight from the cache
-      requestAnimationFrame(() => draw(i))
-    }
-  })
-
-  // initial draw + redraw on resize
+  // the film is driven by scroll — the position is polled (bulletproof in
+  // every environment) and mapped straight to the frame index
   useEffect(() => {
-    const onResize = () => draw(frameRef.current)
-    const t = window.setInterval(() => {
-      if (inView && getFrame(frameRef.current)) {
-        draw(frameRef.current)
-        window.clearInterval(t)
+    let lastY = -1
+    const tick = () => {
+      const el = sectionRef.current
+      if (!el) return
+      const y = window.scrollY
+      if (y === lastY) return
+      lastY = y
+      const total = el.offsetHeight - window.innerHeight
+      if (total <= 0) return
+      const p = Math.min(1, Math.max(0, y / total))
+      const i = frameAt(p)
+      if (i !== frameRef.current) {
+        frameRef.current = i
+        setFrame(i)
+        draw(i)
       }
-    }, 250)
-    window.addEventListener('resize', onResize)
+    }
+    tick()
+    const t = window.setInterval(tick, 120)
+    window.addEventListener('resize', tick)
     return () => {
       window.clearInterval(t)
-      window.removeEventListener('resize', onResize)
+      window.removeEventListener('resize', tick)
+    }
+  }, [])
+
+  // self-healing repaint: every beat while the walk is on screen, redraw
+  // the current frame — covers a draw that fired before its frame arrived
+  useEffect(() => {
+    let cancelled = false
+    whenReady().then(() => {
+      if (!cancelled) draw(frameRef.current)
+    })
+    const t = window.setInterval(() => {
+      if (inView && !cancelled) draw(frameRef.current)
+    }, 400)
+    return () => {
+      cancelled = true
+      window.clearInterval(t)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inView])
