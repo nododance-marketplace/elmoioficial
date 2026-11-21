@@ -4,14 +4,11 @@ import { AnimatePresence, motion } from 'framer-motion'
 /*
  * EL MOI — the threshold.
  *
- * No stills, no gate. The loading film autoplays the moment the page
- * loads; when it ends, its own final frame is captured and split —
- * the doors part and the website shows through.
- *
- *   desktop  — horizontal seam: top half lifts, bottom half sinks
- *   mobile   — vertical seam: the film is rotated 90° to fill the
- *              portrait screen, and the frame splits into a left door
- *              and a right door that slide apart
+ * The loading film plays VERTICALLY on every device — rotated 90° so El Moi
+ * lies up the screen, contained like a phone-format film (soft side bars on
+ * wide monitors). When it ends, its own final frame is captured and split
+ * along the vertical seam — the left door slides left, the right door
+ * slides right — and the website shows through.
  *
  * Body scroll stays locked until the doors finish parting.
  */
@@ -22,7 +19,7 @@ export function LoadingIntro() {
   const [phase, setPhase] = useState<Phase>('film')
   const [gone, setGone] = useState(false)
   const [frameUrl, setFrameUrl] = useState<string | null>(null)
-  const [vertical, setVertical] = useState(false)
+  const [dims, setDims] = useState(() => ({ vw: window.innerWidth, vh: window.innerHeight }))
   const videoRef = useRef<HTMLVideoElement>(null)
   const timers = useRef<number[]>([])
 
@@ -32,6 +29,13 @@ export function LoadingIntro() {
 
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
 
+  // keep the vertical geometry current
+  useEffect(() => {
+    const onResize = () => setDims({ vw: window.innerWidth, vh: window.innerHeight })
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
   // lock body scroll until the doors finish parting
   useEffect(() => {
     document.body.style.overflow = phase === 'revealed' ? '' : 'hidden'
@@ -40,15 +44,16 @@ export function LoadingIntro() {
     }
   }, [phase])
 
-  const filmEnded = () => {
-    const vw = window.innerWidth
-    const vh = window.innerHeight
-    const isVertical = vw < 768 || vw < vh
-    setVertical(isVertical)
+  const { vw, vh } = dims
 
-    // capture the video's true final frame — rotated on mobile — with the
-    // same cover geometry it was displayed with, so the doors continue it
-    // pixel-for-pixel
+  // the film, rotated 90° and contained: the on-screen box keeps the
+  // film's own aspect, stood upright — full frame, no crop
+  const filmW = Math.min(vh, Math.round((vw * 16) / 9))
+  const filmH = Math.round((filmW * 9) / 16)
+
+  const filmEnded = () => {
+    // capture the screen composite (rotated film on its backdrop) so the
+    // doors continue it pixel-for-pixel
     const v = videoRef.current
     if (v) {
       try {
@@ -57,18 +62,13 @@ export function LoadingIntro() {
         c.height = vh
         const ctx = c.getContext('2d')
         if (ctx) {
-          const iw = v.videoWidth
-          const ih = v.videoHeight
-          if (isVertical) {
-            // rotated 90°: the film's height becomes the screen's width
-            const s = Math.max(vw / ih, vh / iw)
-            ctx.translate(vw / 2, vh / 2)
-            ctx.rotate(Math.PI / 2)
-            ctx.drawImage(v, (-iw * s) / 2, (-ih * s) / 2, iw * s, ih * s)
-          } else {
-            const s = Math.max(vw / iw, vh / ih)
-            ctx.drawImage(v, (vw - iw * s) / 2, (vh - ih * s) / 2, iw * s, ih * s)
-          }
+          ctx.fillStyle = '#1a1414'
+          ctx.fillRect(0, 0, vw, vh)
+          ctx.save()
+          ctx.translate(vw / 2, vh / 2)
+          ctx.rotate(Math.PI / 2)
+          ctx.drawImage(v, -filmW / 2, -filmH / 2, filmW, filmH)
+          ctx.restore()
           setFrameUrl(c.toDataURL('image/jpeg', 0.9))
         }
       } catch {
@@ -83,21 +83,6 @@ export function LoadingIntro() {
 
   const doorsOpen = phase === 'revealed'
 
-  // shared style for both door halves; the mapping differs per orientation
-  const doorStyle = vertical
-    ? {
-        backgroundImage: frameUrl ? `url(${frameUrl})` : undefined,
-        backgroundSize: '200vw 100vh',
-        backgroundRepeat: 'no-repeat' as const,
-      }
-    : {
-        backgroundImage: frameUrl ? `url(${frameUrl})` : undefined,
-        backgroundSize: '100% 100vh',
-        backgroundRepeat: 'no-repeat' as const,
-      }
-
-  const partEase = [0.7, 0, 0.2, 1] as const
-
   return (
     <AnimatePresence>
       {!gone && (
@@ -110,9 +95,7 @@ export function LoadingIntro() {
             doorsOpen ? 'pointer-events-none bg-transparent' : 'bg-ink-950'
           }`}
         >
-          {/* ---------- THE FILM (holds its final frame after ending;
-                hidden the instant the doors start parting so the gap
-                reveals the real page) — rotated on mobile ---------- */}
+          {/* ---------- THE FILM, VERTICAL ---------- */}
           <motion.video
             key="film"
             initial={{ opacity: 0 }}
@@ -125,57 +108,45 @@ export function LoadingIntro() {
             playsInline
             onEnded={filmEnded}
             onError={filmEnded}
-            className="absolute inset-0 h-full w-full object-cover"
-            style={
-              vertical
-                ? {
-                    visibility: doorsOpen ? 'hidden' : 'visible',
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    width: '100vh',
-                    height: '100vw',
-                    transform: 'translate(-50%, -50%) rotate(90deg)',
-                    objectFit: 'cover',
-                  }
-                : { visibility: doorsOpen ? 'hidden' : 'visible' }
-            }
+            className="absolute"
+            style={{
+              visibility: doorsOpen ? 'hidden' : 'visible',
+              top: '50%',
+              left: '50%',
+              width: filmW,
+              height: filmH,
+              transform: 'translate(-50%, -50%) rotate(90deg)',
+              objectFit: 'cover',
+            }}
           />
 
-          {/* ---------- THE DOORS: the film's own final frame, split ---------- */}
-          {frameUrl && !vertical && (
-            <>
-              <motion.div
-                className="absolute inset-x-0 top-0 h-1/2"
-                style={{ ...doorStyle, backgroundPosition: 'center top' }}
-                initial={{ y: 0 }}
-                animate={doorsOpen ? { y: '-100%' } : { y: 0 }}
-                transition={{ duration: 1.4, ease: [...partEase] }}
-              />
-              <motion.div
-                className="absolute inset-x-0 bottom-0 h-1/2"
-                style={{ ...doorStyle, backgroundPosition: 'center bottom' }}
-                initial={{ y: 0 }}
-                animate={doorsOpen ? { y: '100%' } : { y: 0 }}
-                transition={{ duration: 1.4, ease: [...partEase] }}
-              />
-            </>
-          )}
-          {frameUrl && vertical && (
+          {/* ---------- THE DOORS: the film's own final frame, split
+                along the vertical seam ---------- */}
+          {frameUrl && (
             <>
               <motion.div
                 className="absolute inset-y-0 left-0 w-1/2"
-                style={{ ...doorStyle, backgroundPosition: 'left top' }}
+                style={{
+                  backgroundImage: `url(${frameUrl})`,
+                  backgroundSize: '200vw 100vh',
+                  backgroundPosition: 'left top',
+                  backgroundRepeat: 'no-repeat',
+                }}
                 initial={{ x: 0 }}
                 animate={doorsOpen ? { x: '-100%' } : { x: 0 }}
-                transition={{ duration: 1.4, ease: [...partEase] }}
+                transition={{ duration: 1.4, ease: [0.7, 0, 0.2, 1] }}
               />
               <motion.div
                 className="absolute inset-y-0 right-0 w-1/2"
-                style={{ ...doorStyle, backgroundPosition: 'right top' }}
+                style={{
+                  backgroundImage: `url(${frameUrl})`,
+                  backgroundSize: '200vw 100vh',
+                  backgroundPosition: 'right top',
+                  backgroundRepeat: 'no-repeat',
+                }}
                 initial={{ x: 0 }}
                 animate={doorsOpen ? { x: '100%' } : { x: 0 }}
-                transition={{ duration: 1.4, ease: [...partEase] }}
+                transition={{ duration: 1.4, ease: [0.7, 0, 0.2, 1] }}
               />
             </>
           )}
@@ -186,7 +157,7 @@ export function LoadingIntro() {
               <motion.div
                 initial={{ scaleX: 0 }}
                 animate={{ scaleX: 1 }}
-                transition={{ duration: 1.4, ease: 'easeInOut' }}
+                transition={{ duration: 3.6, ease: 'easeInOut' }}
                 className="h-full w-full origin-left bg-gradient-to-r from-gold-500 via-gold-400 to-gold-200"
               />
             </div>
