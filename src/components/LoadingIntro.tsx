@@ -124,6 +124,7 @@ export function LoadingIntro() {
                 left: '50%',
                 width: filmW,
                 height: filmH,
+                maxWidth: 'none',
                 transform: 'translate(-50%, -50%) rotate(90deg)',
                 objectFit: 'cover',
               }}
