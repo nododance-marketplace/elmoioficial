@@ -7,7 +7,7 @@
  * film draws from this cache.
  */
 
-export const FRAME_COUNT = 234
+export const FRAME_COUNT = 247
 
 export function frameSrc(i: number): string {
   return `/frames/w_${String(i + 1).padStart(4, '0')}.webp`

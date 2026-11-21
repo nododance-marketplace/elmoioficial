@@ -20,12 +20,12 @@ const SECTION_VH = 500 // scroll length of the walk (the original rate)
 const KEYFRAMES: Array<[number, number]> = [
   [0.0, 0],    // iso wide (arrival)
   [0.05, 0],   // brief arrival hold
-  [0.24, 116], // glide to the portrait
-  [0.36, 116], // HOLD — portrait (social icons)
-  [0.56, 165], // glide to the Nodo desk
-  [0.68, 165], // HOLD — Nodo dance pit stop (the screen)
-  [0.88, 233], // glide to the clothing rack
-  [1.0, 233],  // HOLD — rack (Desterrado shop frame)
+  [0.24, 121], // glide to the portrait
+  [0.36, 121], // HOLD — portrait (social icons)
+  [0.56, 173], // glide to the Nodo desk
+  [0.68, 173], // HOLD — Nodo dance pit stop (the screen)
+  [0.88, 246], // glide to the clothing rack
+  [1.0, 246],  // HOLD — rack (Desterrado shop frame)
 ]
 
 function frameAt(p: number): number {
@@ -43,8 +43,8 @@ function frameAt(p: number): number {
 
 type Hold = 'nodo' | 'portrait' | 'rack' | null
 function holdAt(frame: number): Hold {
-  if (frame === 165) return 'nodo'
-  if (frame === 116) return 'portrait'
+  if (frame === 173) return 'nodo'
+  if (frame === 121) return 'portrait'
   if (frame >= FRAME_COUNT - 1) return 'rack'
   return null
 }
