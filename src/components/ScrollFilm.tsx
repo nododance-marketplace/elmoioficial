@@ -155,7 +155,7 @@ export function ScrollFilm() {
     if (!canvas || !img) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
+    const dpr = Math.min(window.devicePixelRatio || 1, 2)
     const vw = window.innerWidth
     const vh = window.innerHeight
     const cw = Math.round(vw * dpr)
@@ -241,11 +241,6 @@ export function ScrollFilm() {
             ))}
           </div>
         )}
-
-        {/* film counter, featherweight */}
-        <div className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 font-sans text-[9px] uppercase tracking-[0.4em] text-bone-200/40">
-          {String(frame + 1).padStart(3, '0')} / {FRAME_COUNT}
-        </div>
       </div>
     </section>
   )
