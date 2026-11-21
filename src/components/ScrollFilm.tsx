@@ -14,7 +14,7 @@ import { FRAME_COUNT, getFrame, preloadFrames, whenReady } from '../lib/framePre
  * Desterrado shop frame.
  */
 
-const SECTION_VH = 2000 // scroll length of the walk (half of the previous speed)
+const SECTION_VH = 500 // scroll length of the walk (the original rate)
 
 // scroll progress -> frame index, with flat holds (frame index is 0-based)
 const KEYFRAMES: Array<[number, number]> = [
