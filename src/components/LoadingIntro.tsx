@@ -46,10 +46,14 @@ export function LoadingIntro() {
 
   const { vw, vh } = dims
 
-  // the film, rotated 90° and contained: the on-screen box keeps the
-  // film's own aspect, stood upright — full frame, no crop
-  const filmW = Math.min(vh, Math.round((vw * 16) / 9))
-  const filmH = Math.round((filmW * 9) / 16)
+  // the film, rotated 90°:
+  //   portrait screens — COVER: it fills the phone edge to edge
+  //   landscape screens — CONTAIN: the full vertical frame with soft bars
+  const isPortraitScreen = vh > vw
+  const coverH = Math.max(vw, Math.round((vh * 9) / 16))
+  const coverW = Math.round((coverH * 16) / 9)
+  const filmW = isPortraitScreen ? coverW : Math.min(vh, Math.round((vw * 16) / 9))
+  const filmH = isPortraitScreen ? coverH : Math.round((filmW * 9) / 16)
 
   const filmEnded = () => {
     // capture the screen composite (rotated film on its backdrop) so the
@@ -121,14 +125,15 @@ export function LoadingIntro() {
           />
 
           {/* ---------- THE DOORS: the film's own final frame, split
-                along the vertical seam ---------- */}
+                down the vertical seam; each half carries half of the
+                full-screen frame ---------- */}
           {frameUrl && (
             <>
               <motion.div
                 className="absolute inset-y-0 left-0 w-1/2"
                 style={{
                   backgroundImage: `url(${frameUrl})`,
-                  backgroundSize: '200vw 100vh',
+                  backgroundSize: '200% 100%',
                   backgroundPosition: 'left top',
                   backgroundRepeat: 'no-repeat',
                 }}
@@ -140,7 +145,7 @@ export function LoadingIntro() {
                 className="absolute inset-y-0 right-0 w-1/2"
                 style={{
                   backgroundImage: `url(${frameUrl})`,
-                  backgroundSize: '200vw 100vh',
+                  backgroundSize: '200% 100%',
                   backgroundPosition: 'right top',
                   backgroundRepeat: 'no-repeat',
                 }}
