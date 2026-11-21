@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { LINKS } from '../data/links'
 import { FRAME_COUNT, getFrame, preloadFrames, whenReady } from '../lib/framePreloader'
 
@@ -59,12 +59,12 @@ type Hotspot = { fx: number; fy: number; href: string; label: string; icon: 'nod
 const HOTSPOTS: Record<'nodo' | 'portrait' | 'rack', Hotspot[]> = {
   nodo: [{ fx: 0.455, fy: 0.35, href: LINKS.nododance, label: 'nododance.com', icon: 'node' }],
   portrait: [
-    { fx: 0.335, fy: 0.075, href: LINKS.instagram, label: 'Instagram', icon: 'ig' },
+    { fx: 0.4, fy: 0.075, href: LINKS.instagram, label: 'Instagram', icon: 'ig' },
     { fx: 0.5, fy: 0.09, href: LINKS.youtube, label: 'YouTube', icon: 'yt' },
-    { fx: 0.655, fy: 0.11, href: LINKS.tiktok, label: 'TikTok', icon: 'tt' },
-    { fx: 0.335, fy: 0.925, href: LINKS.appleMusic, label: 'Apple Music', icon: 'am' },
+    { fx: 0.6, fy: 0.11, href: LINKS.tiktok, label: 'TikTok', icon: 'tt' },
+    { fx: 0.4, fy: 0.925, href: LINKS.appleMusic, label: 'Apple Music', icon: 'am' },
     { fx: 0.5, fy: 0.945, href: LINKS.spotify, label: 'Spotify', icon: 'sp' },
-    { fx: 0.665, fy: 0.925, href: LINKS.youtubeMusic, label: 'YouTube Music', icon: 'ym' },
+    { fx: 0.6, fy: 0.925, href: LINKS.youtubeMusic, label: 'YouTube Music', icon: 'ym' },
   ],
   rack: [{ fx: 0.52, fy: 0.26, href: LINKS.desterrado, label: 'Desterrado — Capítulo I', icon: 'dz' }],
 }
@@ -122,7 +122,10 @@ export function ScrollFilm() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const frameRef = useRef(0)
   const rectRef = useRef({ dx: 0, dy: 0, w: 1, h: 1 })
+  const targetP = useRef(0)
+  const smoothP = useRef(0)
   const [frame, setFrame] = useState(0)
+  const [showHint, setShowHint] = useState(true)
   const [inView, setInView] = useState(false)
 
   // kick the preload (shared with the intro)
@@ -170,51 +173,44 @@ export function ScrollFilm() {
     ctx.drawImage(img, dx, dy, w, h)
   }
 
-  // the film is driven by scroll — the position is polled (bulletproof in
-  // every environment) and mapped straight to the frame index
+  // the film is driven by scroll — the raw position is polled, then EASED
+  // toward (smoothing), and mapped straight to the frame index
   useEffect(() => {
-    let lastY = -1
-    const tick = () => {
+    let raf = 0
+    const loop = () => {
       const el = sectionRef.current
-      if (!el) return
-      const y = window.scrollY
-      if (y === lastY) return
-      lastY = y
-      const total = el.offsetHeight - window.innerHeight
-      if (total <= 0) return
-      const p = Math.min(1, Math.max(0, y / total))
-      const i = frameAt(p)
-      if (i !== frameRef.current) {
-        frameRef.current = i
-        setFrame(i)
-        draw(i)
+      if (el) {
+        const total = el.offsetHeight - window.innerHeight
+        if (total > 0) {
+          targetP.current = Math.min(1, Math.max(0, window.scrollY / total))
+        }
+        // ease toward the scroll position — buttery frame stepping
+        smoothP.current += (targetP.current - smoothP.current) * 0.12
+        if (Math.abs(targetP.current - smoothP.current) < 0.0004) {
+          smoothP.current = targetP.current
+        }
+        const i = frameAt(smoothP.current)
+        if (i !== frameRef.current) {
+          frameRef.current = i
+          setFrame(i)
+          setShowHint(i <= 1)
+          draw(i)
+        }
       }
+      raf = requestAnimationFrame(loop)
     }
-    tick()
-    const t = window.setInterval(tick, 120)
-    window.addEventListener('resize', tick)
-    return () => {
-      window.clearInterval(t)
-      window.removeEventListener('resize', tick)
-    }
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
   }, [])
 
-  // self-healing repaint: every beat while the walk is on screen, redraw
-  // the current frame — covers a draw that fired before its frame arrived
+  // first paint: as soon as the cached frames arrive, draw the current one
   useEffect(() => {
     let cancelled = false
     whenReady().then(() => {
       if (!cancelled) draw(frameRef.current)
     })
-    const t = window.setInterval(() => {
-      if (inView && !cancelled) draw(frameRef.current)
-    }, 400)
-    return () => {
-      cancelled = true
-      window.clearInterval(t)
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inView])
+  }, [])
 
   const hold = holdAt(frame)
   const showHotspots = inView && hold !== null
@@ -253,6 +249,35 @@ export function ScrollFilm() {
             ))}
           </div>
         )}
+
+        {/* scroll cue — fades in above the chandelier chain, gone once the
+              visitor starts walking */}
+        <AnimatePresence>
+          {showHint && inView && (
+            <motion.div
+              key="hint"
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.7, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
+              className="pointer-events-none absolute left-1/2 z-10 -translate-x-1/2"
+              style={{ top: '3.5%' }}
+            >
+              <span
+                className="font-sans text-[11px] uppercase tracking-[0.5em] text-gold-300"
+                style={{ textShadow: '0 2px 14px rgba(0,0,0,0.75)' }}
+              >
+                Scroll to continue
+              </span>
+              <motion.span
+                aria-hidden
+                animate={{ y: [0, 5, 0] }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                className="mx-auto mt-1 block h-4 w-px bg-gradient-to-b from-gold-300 to-transparent"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </section>
   )
