@@ -3,22 +3,27 @@
  *
  * Loads every frame of the scroll film with a bounded concurrency pool,
  * per-image timeout and retries (a hung request can never wedge the pool),
- * and reports progress. The loaded images stay cached here; the scroll
- * film draws from this cache.
+ * and reports progress.
+ *
+ * Phones get a downscaled frame set (1280×720) — indistinguishable on a
+ * phone screen and a fraction of the decode work. Every frame is also
+ * pre-decoded ONCE into an ImageBitmap at load time, so scrolling draws
+ * are cheap GPU blits instead of full decodes.
  */
 
 export const FRAME_COUNT = 247
 
+const SMALL = typeof window !== 'undefined' && window.innerWidth < 768
+const TW = SMALL ? 1280 : 1920
+const TH = SMALL ? 720 : 1080
+
 export function frameSrc(i: number): string {
-  return `/frames/w_${String(i + 1).padStart(4, '0')}.webp`
+  return SMALL
+    ? `/frames/small/s_${String(i + 1).padStart(4, '0')}.webp`
+    : `/frames/w_${String(i + 1).padStart(4, '0')}.webp`
 }
 
-const POOL = 8
-const TIMEOUT_MS = 12000
-const MAX_ATTEMPTS = 3
-const RETRY_DELAY_MS = 1200
-
-const cache: (HTMLImageElement | undefined)[] = new Array(FRAME_COUNT)
+const cache: (HTMLImageElement | ImageBitmap | undefined)[] = new Array(FRAME_COUNT)
 const settled: boolean[] = new Array(FRAME_COUNT).fill(false)
 const attempts: number[] = new Array(FRAME_COUNT).fill(0)
 
@@ -30,7 +35,7 @@ let inFlight = 0
 let doneResolve: (() => void) | null = null
 const listeners = new Set<(p: number) => void>()
 
-export function getFrame(i: number): HTMLImageElement | undefined {
+export function getFrame(i: number): HTMLImageElement | ImageBitmap | undefined {
   return cache[i]
 }
 
@@ -61,6 +66,19 @@ function setProgress() {
   }
 }
 
+/** pre-decode + downscale once, so every scroll draw is a cheap blit */
+async function toBitmap(img: HTMLImageElement): Promise<ImageBitmap | HTMLImageElement> {
+  try {
+    return await createImageBitmap(img, {
+      resizeWidth: TW,
+      resizeHeight: TH,
+      resizeQuality: 'high',
+    })
+  } catch {
+    return img // older browsers: draw the raw image
+  }
+}
+
 function loadImage(i: number): void {
   inFlight++
   attempts[i]++
@@ -69,12 +87,15 @@ function loadImage(i: number): void {
   const img = new Image()
   img.decoding = 'async'
 
-  const settle = (ok: boolean) => {
-    if (settled[i]) return
-    inFlight--
+  const settle = async (ok: boolean) => {
+    if (settled[i]) {
+      inFlight--
+      return
+    }
     settled[i] = true
-    if (ok) cache[i] = img
+    if (ok) cache[i] = await toBitmap(img)
     doneCount++
+    inFlight--
     setProgress()
     if (!ok && attempts[i] < MAX_ATTEMPTS) {
       window.setTimeout(() => {
@@ -86,13 +107,13 @@ function loadImage(i: number): void {
     pump()
   }
 
-  img.onload = () => settle(true)
-  img.onerror = () => settle(false)
+  img.onload = () => void settle(true)
+  img.onerror = () => void settle(false)
 
   // stall guard: a request that never settles is treated as failed and
   // retried, so the pool can never wedge
   window.setTimeout(() => {
-    if (!settled[i]) settle(false)
+    if (!settled[i]) void settle(false)
   }, TIMEOUT_MS)
 
   img.src = frameSrc(i)

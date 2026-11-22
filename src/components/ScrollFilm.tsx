@@ -161,8 +161,8 @@ export function ScrollFilm() {
       canvas.width = cw
       canvas.height = ch
     }
-    const iw = img.naturalWidth
-    const ih = img.naturalHeight
+    const iw = 'naturalWidth' in img ? img.naturalWidth : img.width
+    const ih = 'naturalHeight' in img ? img.naturalHeight : img.height
     const scale = Math.max(cw / iw, ch / ih)
     const w = iw * scale
     const h = ih * scale
