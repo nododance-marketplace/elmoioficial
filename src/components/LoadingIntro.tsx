@@ -147,7 +147,7 @@ export function LoadingIntro() {
                 className="absolute inset-x-0 top-0 h-1/2"
                 style={{
                   backgroundImage: `url(${frameUrl})`,
-                  backgroundSize: '100% 200vh',
+                  backgroundSize: '100vw 100vh',
                   backgroundPosition: 'center top',
                   backgroundRepeat: 'no-repeat',
                 }}
@@ -159,7 +159,7 @@ export function LoadingIntro() {
                 className="absolute inset-x-0 bottom-0 h-1/2"
                 style={{
                   backgroundImage: `url(${frameUrl})`,
-                  backgroundSize: '100% 200vh',
+                  backgroundSize: '100vw 100vh',
                   backgroundPosition: 'center bottom',
                   backgroundRepeat: 'no-repeat',
                 }}
