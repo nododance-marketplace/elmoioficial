@@ -221,8 +221,35 @@ export function ScrollFilm() {
       <div className="sticky top-0 h-screen overflow-hidden bg-ink-950">
         <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 
-        {/* hotspot layer — mapped through the cover rect */}
-        {showHotspots && hold && (
+        {/* portrait hold — the six links gathered in the middle */}
+        {showHotspots && hold === 'portrait' && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center">
+            <div className="flex max-w-[86vw] flex-wrap items-start justify-center gap-x-6 gap-y-5 px-6">
+              {HOTSPOTS.portrait.map((hs) => (
+                <motion.a
+                  key={hs.href + hs.label}
+                  href={hs.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  initial={{ opacity: 0, scale: 0.7 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                  className="group flex w-24 flex-col items-center gap-2"
+                >
+                  <span className="grid h-12 w-12 place-items-center rounded-full border border-gold-300 bg-ink-950/80 text-gold-200 shadow-[0_8px_30px_rgba(0,0,0,0.6)] backdrop-blur-sm transition-colors group-hover:border-gold-100 group-hover:text-gold-100">
+                    <IconGlyph icon={hs.icon} />
+                  </span>
+                  <span className="whitespace-nowrap rounded-sm border border-gold-400/50 bg-ink-950/75 px-2 py-1 text-center font-sans text-[9px] uppercase tracking-[0.2em] text-gold-200 shadow-[0_6px_20px_rgba(0,0,0,0.5)] backdrop-blur-sm transition-colors group-hover:border-gold-200 group-hover:text-gold-100">
+                    {hs.label}
+                  </span>
+                </motion.a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* nodo / rack holds — hotspots mapped through the cover rect */}
+        {showHotspots && (hold === 'nodo' || hold === 'rack') && (
           <div
             className="absolute"
             style={{ left: rect.dx, top: rect.dy, width: rect.w, height: rect.h }}
