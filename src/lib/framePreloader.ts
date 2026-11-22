@@ -23,6 +23,11 @@ export function frameSrc(i: number): string {
     : `/frames/w_${String(i + 1).padStart(4, '0')}.webp`
 }
 
+const POOL = 8
+const TIMEOUT_MS = 12000
+const MAX_ATTEMPTS = 3
+const RETRY_DELAY_MS = 1200
+
 const cache: (HTMLImageElement | ImageBitmap | undefined)[] = new Array(FRAME_COUNT)
 const settled: boolean[] = new Array(FRAME_COUNT).fill(false)
 const attempts: number[] = new Array(FRAME_COUNT).fill(0)
