@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LINKS } from '../data/links'
-import { FRAME_COUNT, getFrame, preloadFrames, whenReady } from '../lib/framePreloader'
+import { FRAME_COUNT, getFrame, preloadFrames, setFocus, whenReady } from '../lib/framePreloader'
 
 /*
  * EL MOI — the walk through the salon.
@@ -14,7 +14,9 @@ import { FRAME_COUNT, getFrame, preloadFrames, whenReady } from '../lib/framePre
  * Desterrado shop frame.
  */
 
-const SECTION_VH = 500 // scroll length of the walk (the original rate)
+const SECTION_VH = typeof window !== 'undefined' && window.innerWidth < 768 ? 1100 : 500
+// phones fling fast — the walk gets double+ length so regular scrolling
+// doesn't burn through the film in one flick
 
 // scroll progress -> frame index, with flat holds (frame index is 0-based)
 const KEYFRAMES: Array<[number, number]> = [
@@ -145,11 +147,15 @@ export function ScrollFilm() {
     return () => io.disconnect()
   }, [])
 
-  // draw the current frame with object-cover geometry
-  const draw = (i: number) => {
+  // draw the current frame with object-cover geometry — the frame decode
+  // is async (LRU bitmap cache), so overlapping draws are token-guarded
+  const drawToken = useRef(0)
+  const draw = async (i: number) => {
     const canvas = canvasRef.current
-    const img = getFrame(i)
-    if (!canvas || !img) return
+    if (!canvas) return
+    const token = ++drawToken.current
+    const img = await getFrameBitmap(i)
+    if (!img || token !== drawToken.current) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
@@ -194,7 +200,8 @@ export function ScrollFilm() {
           frameRef.current = i
           setFrame(i)
           setShowHint(i <= 1)
-          draw(i)
+          setFocus(i) // steer the bitmap LRU toward the viewer
+          void draw(i)
         }
       }
       raf = requestAnimationFrame(loop)
