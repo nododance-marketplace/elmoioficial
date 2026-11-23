@@ -81,12 +81,6 @@ function setProgress() {
   }
 }
 
-function unsettledCount(): number {
-  let n = 0
-  for (let i = 0; i < FRAME_COUNT; i++) if (!settled[i]) n++
-  return n
-}
-
 function loadImage(i: number): void {
   inFlight++
   attempts[i]++

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LINKS } from '../data/links'
-import { FRAME_COUNT, getFrame, preloadFrames, setFocus, whenReady } from '../lib/framePreloader'
+import { FRAME_COUNT, getFrameBitmap, preloadFrames, setFocus, whenReady } from '../lib/framePreloader'
 
 /*
  * EL MOI — the walk through the salon.
